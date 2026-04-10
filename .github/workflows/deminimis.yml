@@ -18,6 +18,21 @@ on:
       callback_url:
         description: "Callback URL"
         required: true
+      callback_token:
+        description: "Callback token"
+        required: true
+      source_url:
+        description: "Source URL"
+        required: false
+      country:
+        description: "Country"
+        required: false
+      timeout_ms:
+        description: "Timeout in ms"
+        required: false
+      user_agent:
+        description: "User agent"
+        required: false
 
 jobs:
   scrape:
@@ -41,11 +56,14 @@ jobs:
 
       - name: Run scraper
         env:
-          WORKER_TOKEN: ${{ secrets.WORKER_TOKEN }}
-          CALLBACK_TOKEN: ${{ secrets.CALLBACK_TOKEN }}
           CALLBACK_URL: ${{ github.event.inputs.callback_url }}
+          CALLBACK_TOKEN: ${{ github.event.inputs.callback_token }}
           JOB_ID: ${{ github.event.inputs.job_id }}
           CUSTOMER_ID: ${{ github.event.inputs.customer_id }}
           KVK: ${{ github.event.inputs.kvk }}
           COMPANY_NAME: ${{ github.event.inputs.company_name }}
+          SOURCE_URL: ${{ github.event.inputs.source_url }}
+          COUNTRY: ${{ github.event.inputs.country }}
+          TIMEOUT_MS: ${{ github.event.inputs.timeout_ms }}
+          USER_AGENT: ${{ github.event.inputs.user_agent }}
         run: node .github/scripts/run-dispatch.mjs
