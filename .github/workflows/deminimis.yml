@@ -1,0 +1,51 @@
+name: Deminimis Scraper
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "Sync job ID"
+        required: true
+      customer_id:
+        description: "Customer ID"
+        required: true
+      kvk:
+        description: "KVK number"
+        required: true
+      company_name:
+        description: "Company name"
+        required: false
+      callback_url:
+        description: "Callback URL"
+        required: true
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run scraper
+        env:
+          WORKER_TOKEN: ${{ secrets.WORKER_TOKEN }}
+          CALLBACK_TOKEN: ${{ secrets.CALLBACK_TOKEN }}
+          CALLBACK_URL: ${{ github.event.inputs.callback_url }}
+          JOB_ID: ${{ github.event.inputs.job_id }}
+          CUSTOMER_ID: ${{ github.event.inputs.customer_id }}
+          KVK: ${{ github.event.inputs.kvk }}
+          COMPANY_NAME: ${{ github.event.inputs.company_name }}
+        run: node .github/scripts/run-dispatch.mjs
