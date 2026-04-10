@@ -83,51 +83,56 @@ await page.goto(url, { waitUntil: 'networkidle' });
 await page.waitForSelector('text=Country', { timeout });
 await page.waitForSelector('text=Beneficiary', { timeout });
 
-// Country open
-await page.locator('text=Country').first().click();
-await page.waitForTimeout(500);
+// Country accordion open
+const countrySection = page.locator('text=Country').first();
+await countrySection.click();
+await page.waitForTimeout(800);
 
-const countryInput = page.locator('input[type="text"]').first();
+// zoek invulbaar inputveld binnen linker filterkolom
+const sidebar = page.locator('text=Filters').locator('..').locator('..');
+
+// pak eerste zichtbare invulbare input in filters
+const countryInput = sidebar.locator(
+  'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([disabled])'
+).first();
+
 await countryInput.waitFor({ state: 'visible', timeout });
+await countryInput.click();
 await countryInput.fill(country);
 await page.keyboard.press('Enter');
 
-await page.waitForTimeout(500);
+await page.waitForTimeout(1000);
 
-// Beneficiary section open
-await page.locator('text=Beneficiary').first().click();
-await page.waitForTimeout(500);
+// Beneficiary accordion open
+const beneficiaryHeader = page.locator('text=Beneficiary').first();
+await beneficiaryHeader.click();
+await page.waitForTimeout(800);
 
-const textInputs = page.locator('input[type="text"]');
-const textInputCount = await textInputs.count();
+// Zoek het label "Beneficiary ID" en neem het eerstvolgende invulveld daaronder
+const beneficiaryIdLabel = page.locator('text=Beneficiary ID').first();
+await beneficiaryIdLabel.waitFor({ state: 'visible', timeout });
 
-let beneficiaryIdInput = null;
+const beneficiaryBlock = beneficiaryIdLabel.locator('xpath=ancestor::div[contains(@class,"eui-u-mb") or contains(@class,"row")][1]');
+let beneficiaryIdInput = beneficiaryBlock.locator(
+  'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([disabled])'
+).first();
 
-for (let i = 0; i < textInputCount; i++) {
-  const ph = await textInputs.nth(i).getAttribute('placeholder');
-  const aria = await textInputs.nth(i).getAttribute('aria-label');
-  const name = await textInputs.nth(i).getAttribute('name');
-  const combined = `${ph || ''} ${aria || ''} ${name || ''}`.toLowerCase();
-
-  if (
-    combined.includes('beneficiary id') ||
-    combined.includes('beneficiary') ||
-    combined.includes('contains')
-  ) {
-    beneficiaryIdInput = textInputs.nth(i);
-    break;
-  }
-}
-
-if (!beneficiaryIdInput) {
-  beneficiaryIdInput = textInputs.last();
+// fallback als ancestor-structuur net anders is
+if (!(await beneficiaryIdInput.count())) {
+  beneficiaryIdInput = beneficiaryIdLabel.locator('xpath=following::input[not(@type="checkbox") and not(@type="radio") and not(@type="hidden")][1]');
 }
 
 await beneficiaryIdInput.waitFor({ state: 'visible', timeout });
+await beneficiaryIdInput.click();
 await beneficiaryIdInput.fill(normalizeKvk(kvk));
 
-  const searchButton = page.getByRole('button', { name: /search/i }).first();
-await searchButton.click();
+  let searchButton = page.getByRole('button', { name: /search/i }).first();
+
+  if (!(await searchButton.count())) {
+    searchButton = page.locator('button').filter({ has: page.locator('svg') }).first();
+  }
+  
+  await searchButton.click();
 
   await page.waitForLoadState('networkidle');
 
