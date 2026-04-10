@@ -1,0 +1,13 @@
+{
+  "name": "deminimis-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright": "^1.53.0"
+  }
+}
