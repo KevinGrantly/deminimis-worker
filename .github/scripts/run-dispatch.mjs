@@ -24,6 +24,9 @@ required('CUSTOMER_ID', customerId);
 required('KVK', kvk);
 
 async function postCallback(payload) {
+  console.log('Posting callback to:', callbackUrl);
+  console.log('Callback payload:', JSON.stringify(payload));
+
   const res = await fetch(callbackUrl, {
     method: 'POST',
     headers: {
@@ -35,13 +38,15 @@ async function postCallback(payload) {
 
   const text = await res.text();
 
+  console.log('Callback status:', res.status);
+  console.log('Callback response:', text);
+
   if (!res.ok) {
     throw new Error(`Callback failed: ${res.status} ${text}`);
   }
 
   return text;
 }
-
 async function runScraper() {
   return await new Promise((resolve, reject) => {
     const payload = {
@@ -125,6 +130,10 @@ async function main() {
 }
 
 main().catch(async (err) => {
+  console.error('run-dispatch failed:', err);
+  console.error('message:', err?.message || String(err));
+  console.error('stack:', err?.stack || 'no stack');
+
   try {
     await postCallback({
       job_id: Number(jobId || 0),
@@ -132,7 +141,10 @@ main().catch(async (err) => {
       status: 'error',
       error_message: err.message || String(err),
     });
-  } catch (_) {}
+  } catch (callbackErr) {
+    console.error('error callback failed:', callbackErr);
+    console.error('error callback message:', callbackErr?.message || String(callbackErr));
+  }
 
   process.exit(1);
 });
