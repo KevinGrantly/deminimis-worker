@@ -75,46 +75,59 @@ const browser = await chromium.launch({
 });
 
 try {
-  const page = await browser.newPage({ userAgent });
-  page.setDefaultTimeout(timeout);
+const page = await browser.newPage({ userAgent });
+page.setDefaultTimeout(timeout);
 
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+await page.goto(url, { waitUntil: 'networkidle' });
 
-  await page.waitForSelector('text=Country', { timeout });
-  await page.waitForSelector('text=Beneficiary', { timeout });
+await page.waitForSelector('text=Country', { timeout });
+await page.waitForSelector('text=Beneficiary', { timeout });
 
-  // Country open
-  await page.locator('text=Country').first().click();
-  const countryInput = page.locator('input').filter({ hasText: '' }).nth(0);
-  await countryInput.fill(country);
-  await page.keyboard.press('Enter');
+// Country open
+await page.locator('text=Country').first().click();
+await page.waitForTimeout(500);
 
-  // Beneficiary section open
-  await page.locator('text=Beneficiary').first().click();
+const countryInput = page.locator('input[type="text"]').first();
+await countryInput.waitFor({ state: 'visible', timeout });
+await countryInput.fill(country);
+await page.keyboard.press('Enter');
 
-  const inputs = page.locator('input');
-  const count = await inputs.count();
+await page.waitForTimeout(500);
 
-  let beneficiaryIdInput = null;
-  for (let i = 0; i < count; i++) {
-    const ph = await inputs.nth(i).getAttribute('placeholder');
-    const aria = await inputs.nth(i).getAttribute('aria-label');
-    const combined = `${ph || ''} ${aria || ''}`.toLowerCase();
-    if (combined.includes('beneficiary id')) {
-      beneficiaryIdInput = inputs.nth(i);
-      break;
-    }
+// Beneficiary section open
+await page.locator('text=Beneficiary').first().click();
+await page.waitForTimeout(500);
+
+const textInputs = page.locator('input[type="text"]');
+const textInputCount = await textInputs.count();
+
+let beneficiaryIdInput = null;
+
+for (let i = 0; i < textInputCount; i++) {
+  const ph = await textInputs.nth(i).getAttribute('placeholder');
+  const aria = await textInputs.nth(i).getAttribute('aria-label');
+  const name = await textInputs.nth(i).getAttribute('name');
+  const combined = `${ph || ''} ${aria || ''} ${name || ''}`.toLowerCase();
+
+  if (
+    combined.includes('beneficiary id') ||
+    combined.includes('beneficiary') ||
+    combined.includes('contains')
+  ) {
+    beneficiaryIdInput = textInputs.nth(i);
+    break;
   }
+}
 
-  if (!beneficiaryIdInput) {
-    // fallback: meestal tweede beneficiary input
-    beneficiaryIdInput = inputs.nth(1);
-  }
+if (!beneficiaryIdInput) {
+  beneficiaryIdInput = textInputs.last();
+}
 
-  await beneficiaryIdInput.fill(kvk);
+await beneficiaryIdInput.waitFor({ state: 'visible', timeout });
+await beneficiaryIdInput.fill(normalizeKvk(kvk));
 
-  const searchButton = page.locator('button').filter({ has: page.locator('svg') }).nth(1);
-  await searchButton.click();
+  const searchButton = page.getByRole('button', { name: /search/i }).first();
+await searchButton.click();
 
   await page.waitForLoadState('networkidle');
 
