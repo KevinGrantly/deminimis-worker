@@ -66,6 +66,12 @@ const {
 const browser = await chromium.launch({
   headless: true,
   args: ['--no-sandbox', '--disable-dev-shm-usage']
+}).catch((err) => {
+  console.log(JSON.stringify({
+    success: false,
+    message: `Browser launch failed: ${err.message}`
+  }));
+  process.exit(1);
 });
 
 try {
