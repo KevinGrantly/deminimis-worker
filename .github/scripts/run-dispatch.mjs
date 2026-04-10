@@ -6,6 +6,10 @@ const jobId = process.env.JOB_ID;
 const customerId = process.env.CUSTOMER_ID;
 const kvk = process.env.KVK;
 const companyName = process.env.COMPANY_NAME || '';
+const sourceUrl = process.env.SOURCE_URL || 'https://aid-register.ec.europa.eu/de-minimis';
+const country = process.env.COUNTRY || 'Netherlands';
+const timeoutMs = Number(process.env.TIMEOUT_MS || '30000');
+const userAgent = process.env.USER_AGENT || 'Mozilla/5.0 (compatible; Grantly DeMinimis Sync/1.2)';
 
 function required(name, value) {
   if (!value) {
@@ -20,9 +24,6 @@ required('CUSTOMER_ID', customerId);
 required('KVK', kvk);
 
 async function postCallback(payload) {
-  console.log('Posting callback to:', callbackUrl);
-  console.log('Callback payload status:', payload.status);
-
   const res = await fetch(callbackUrl, {
     method: 'POST',
     headers: {
@@ -33,8 +34,6 @@ async function postCallback(payload) {
   });
 
   const text = await res.text();
-  console.log('Callback response status:', res.status);
-  console.log('Callback response body:', text);
 
   if (!res.ok) {
     throw new Error(`Callback failed: ${res.status} ${text}`);
@@ -45,13 +44,17 @@ async function postCallback(payload) {
 
 async function runScraper() {
   return await new Promise((resolve, reject) => {
-    const args = [
-      'src/eair_fetch.mjs',
-      '--kvk', kvk,
-      '--company', companyName,
-    ];
+    const payload = {
+      url: sourceUrl,
+      kvk,
+      companyName,
+      country,
+      timeout: timeoutMs,
+      userAgent,
+    };
 
-    console.log('Starting scraper:', ['node', ...args].join(' '));
+    const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+    const args = ['src/eair_fetch.mjs', encoded];
 
     const proc = spawn('node', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -61,20 +64,14 @@ async function runScraper() {
     let stderr = '';
 
     proc.stdout.on('data', (d) => {
-      const s = d.toString();
-      stdout += s;
-      process.stdout.write(s);
+      stdout += d.toString();
     });
 
     proc.stderr.on('data', (d) => {
-      const s = d.toString();
-      stderr += s;
-      process.stderr.write(s);
+      stderr += d.toString();
     });
 
-    proc.on('error', (err) => {
-      reject(err);
-    });
+    proc.on('error', reject);
 
     proc.on('close', (code) => {
       resolve({ code, stdout, stderr });
@@ -92,8 +89,6 @@ async function main() {
 
   const result = await runScraper();
 
-  console.log('Scraper exit code:', result.code);
-
   if (result.code !== 0) {
     await postCallback({
       job_id: Number(jobId),
@@ -108,7 +103,7 @@ async function main() {
 
   let parsed;
   try {
-    parsed = JSON.parse(result.stdout);
+    parsed = JSON.parse(result.stdout.trim());
   } catch (err) {
     await postCallback({
       job_id: Number(jobId),
@@ -127,13 +122,9 @@ async function main() {
     status: 'success',
     result: parsed,
   });
-
-  console.log('Workflow completed successfully');
 }
 
 main().catch(async (err) => {
-  console.error('FATAL ERROR:', err);
-
   try {
     await postCallback({
       job_id: Number(jobId || 0),
@@ -141,9 +132,7 @@ main().catch(async (err) => {
       status: 'error',
       error_message: err.message || String(err),
     });
-  } catch (callbackErr) {
-    console.error('SECONDARY CALLBACK ERROR:', callbackErr);
-  }
+  } catch (_) {}
 
   process.exit(1);
 });
