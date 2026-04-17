@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const callbackUrl = process.env.CALLBACK_URL;
+const rawCallbackUrl = process.env.CALLBACK_URL;
 const callbackToken = process.env.CALLBACK_TOKEN;
 const jobId = process.env.JOB_ID;
 const customerId = process.env.CUSTOMER_ID;
@@ -17,7 +17,18 @@ function required(name, value) {
   }
 }
 
-required('CALLBACK_URL', callbackUrl);
+function normalizeCallbackUrl(value) {
+  const input = String(value || '').trim().replace(/\\/g, '');
+  if (!input) {
+    throw new Error('Missing required env var: CALLBACK_URL');
+  }
+
+  const normalized = /^https?:\/\//i.test(input) ? input : `https://${input.replace(/^\/+/, '')}`;
+  return new URL(normalized).toString();
+}
+
+const callbackUrl = normalizeCallbackUrl(rawCallbackUrl);
+
 required('CALLBACK_TOKEN', callbackToken);
 required('JOB_ID', jobId);
 required('CUSTOMER_ID', customerId);
@@ -47,6 +58,7 @@ async function postCallback(payload) {
 
   return text;
 }
+
 async function runScraper() {
   return await new Promise((resolve, reject) => {
     const payload = {
@@ -77,10 +89,7 @@ async function runScraper() {
     });
 
     proc.on('error', reject);
-
-    proc.on('close', (code) => {
-      resolve({ code, stdout, stderr });
-    });
+    proc.on('close', (code) => resolve({ code, stdout, stderr }));
   });
 }
 
