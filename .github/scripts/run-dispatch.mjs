@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 
 const callbackUrl = process.env.CALLBACK_URL;
 const callbackToken = process.env.CALLBACK_TOKEN;
-let callbackCsrfToken = process.env.CALLBACK_CSRF_TOKEN;
 const jobId = process.env.JOB_ID;
 const customerId = process.env.CUSTOMER_ID;
 const kvk = process.env.KVK;
@@ -20,19 +19,13 @@ function required(name, value) {
 
 required('CALLBACK_URL', callbackUrl);
 required('CALLBACK_TOKEN', callbackToken);
-required('CALLBACK_CSRF_TOKEN', callbackCsrfToken);
 required('JOB_ID', jobId);
 required('CUSTOMER_ID', customerId);
 required('KVK', kvk);
 
 async function postCallback(payload) {
-  const requestPayload = {
-    ...payload,
-    csrf_token: callbackCsrfToken,
-  };
-
   console.log('Posting callback to:', callbackUrl);
-  console.log('Callback payload:', JSON.stringify(requestPayload));
+  console.log('Callback payload:', JSON.stringify(payload));
 
   const res = await fetch(callbackUrl, {
     method: 'POST',
@@ -40,7 +33,7 @@ async function postCallback(payload) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${callbackToken}`,
     },
-    body: JSON.stringify(requestPayload),
+    body: JSON.stringify(payload),
   });
 
   const text = await res.text();
@@ -48,25 +41,12 @@ async function postCallback(payload) {
   console.log('Callback status:', res.status);
   console.log('Callback response:', text);
 
-  let parsed = null;
-  try {
-    parsed = text ? JSON.parse(text) : null;
-  } catch (err) {
-    parsed = null;
-  }
-
   if (!res.ok) {
     throw new Error(`Callback failed: ${res.status} ${text}`);
   }
 
-  if (parsed && parsed.csrf_token) {
-    callbackCsrfToken = parsed.csrf_token;
-    console.log('Received rotated callback csrf token');
-  }
-
-  return parsed;
+  return text;
 }
-
 async function runScraper() {
   return await new Promise((resolve, reject) => {
     const payload = {
