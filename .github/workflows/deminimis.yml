@@ -21,9 +21,6 @@ on:
       callback_token:
         description: "Callback token"
         required: true
-      callback_csrf_token:
-        description: "Callback CSRF token"
-        required: true
       source_url:
         description: "Source URL"
         required: false
@@ -61,7 +58,6 @@ jobs:
         env:
           CALLBACK_URL: ${{ github.event.inputs.callback_url }}
           CALLBACK_TOKEN: ${{ github.event.inputs.callback_token }}
-          CALLBACK_CSRF_TOKEN: ${{ github.event.inputs.callback_csrf_token }}
           JOB_ID: ${{ github.event.inputs.job_id }}
           CUSTOMER_ID: ${{ github.event.inputs.customer_id }}
           KVK: ${{ github.event.inputs.kvk }}
