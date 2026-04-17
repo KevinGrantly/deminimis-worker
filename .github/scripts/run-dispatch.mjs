@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const rawCallbackUrl = process.env.CALLBACK_URL;
+const callbackUrl = process.env.CALLBACK_URL;
 const callbackToken = process.env.CALLBACK_TOKEN;
 const jobId = process.env.JOB_ID;
 const customerId = process.env.CUSTOMER_ID;
@@ -17,18 +17,7 @@ function required(name, value) {
   }
 }
 
-function normalizeCallbackUrl(value) {
-  const input = String(value || '').trim().replace(/\\/g, '');
-  if (!input) {
-    throw new Error('Missing required env var: CALLBACK_URL');
-  }
-
-  const normalized = /^https?:\/\//i.test(input) ? input : `https://${input.replace(/^\/+/, '')}`;
-  return new URL(normalized).toString();
-}
-
-const callbackUrl = normalizeCallbackUrl(rawCallbackUrl);
-
+required('CALLBACK_URL', callbackUrl);
 required('CALLBACK_TOKEN', callbackToken);
 required('JOB_ID', jobId);
 required('CUSTOMER_ID', customerId);
@@ -70,8 +59,12 @@ async function runScraper() {
       userAgent,
     };
 
+    console.log('Scraper payload:', JSON.stringify(payload));
+
     const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
     const args = ['src/eair_fetch.mjs', encoded];
+
+    console.log('Spawning node with args:', JSON.stringify(args));
 
     const proc = spawn('node', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -89,11 +82,19 @@ async function runScraper() {
     });
 
     proc.on('error', reject);
-    proc.on('close', (code) => resolve({ code, stdout, stderr }));
+
+    proc.on('close', (code) => {
+      console.log('Scraper exit code:', code);
+      console.log('Scraper stdout:', stdout);
+      console.log('Scraper stderr:', stderr);
+      resolve({ code, stdout, stderr });
+    });
   });
 }
 
 async function main() {
+  console.log('run-dispatch start');
+
   await postCallback({
     job_id: Number(jobId),
     customer_id: Number(customerId),
@@ -136,6 +137,8 @@ async function main() {
     status: 'success',
     result: parsed,
   });
+
+  console.log('run-dispatch done');
 }
 
 main().catch(async (err) => {
